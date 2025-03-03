@@ -3,8 +3,10 @@ import torch.nn as nn
 from torch.nn import functional as F
 #torch.nn,nn is neural network😊 and functional include function like loss and activate
 
-batch_size = 8
+batch_size = 3
 block_size = 5
+device = "cuda" if torch.cuda.is_available() else "cpu"
+n_embd = 3
 
 torch.manual_seed(325) '''The random seed is used to control the initial state of the random number 
 generator, ensuring that the generated random number sequence is the same every time the program runs. 
@@ -14,6 +16,8 @@ file_name ="text"
 with open(file_name,'r', encoding='uft-8') as f:
     text = f.read()
 chars = sorted(list(set(text))) #delete the duplicate characters,and then convert to list, and then sorted
+vocal_size = len(chars)
+
 stoi ={ch:i for i,ch in enumerate(chars)}
 itos = {i: ch for i, ch in enumerate(chars)}
 
@@ -39,4 +43,13 @@ def batch(split):
     x,y = x.to(device),y.to(device)
     return x,y
 
-batch("train")
+x,y = batch("train")
+print(x)
+x_list = x.tolist()
+for str_list in x_list:
+    decoded_str = decode(str_list)
+    print(decoded_str)
+
+token_embedding_table = nn.Embedding(vocal_size, n_embd)
+embd = token_embedding_table(x)
+print(embd)
