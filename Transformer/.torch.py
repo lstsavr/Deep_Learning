@@ -5,10 +5,15 @@ import random
 import textwrap
 #torch.nn,nn is neural network😊 and functional include function like loss and activate
 
-batch_size = 3
-block_size = 5
+batch_size = 8
+block_size = 125
 device = "cuda" if torch.cuda.is_available() else "cpu"
-n_embd = 3
+n_embd = 16
+learning_rate=0.0003
+max_iters=500
+eval_interval =int(max_iters/10)
+eval_iters =200
+dropout_value = 0.2
 
 wrap_width = 50
 
@@ -50,12 +55,46 @@ def batch(split):
     x,y = x.to(device),y.to(device)
     return x,y
 #---------------------------------------------------------------------------------------------
+@torch.no_grad()
+def estimate_loss(model):
+    out = {}
+    model.eval()
+    for split in ['train','val']:
+        losses = torch.zeros(eval_iters)
+        for k in range(eval_iters):
+            X, Y = batch(split)
+            logits, loss = model(X,Y)
+            losses[k] = loss.item()
+        out[split] = loss.mean()
+        model.train()    
+        return out
+#---------------------------------------------------------------------------------------------
+class Head(nn.Module):
+    def __init__(self,head_size): 
+        super().__init__()
+        self.value = nn.linear(n_embd,head_size, bias=False)
+        self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
+        self.dropout = nn.Dropout(dropout_value)
+
+    def forward(self, x):
+        B, T, C = x.shape
+        wei = torch.ones(block_size, block_size)
+        wei = wei.masked_fill(self.trill ==0, float("-inf"))
+        wei = F.softmax(wei, dim = -1)
+        wei = self.dropout(wei)
+
+        v = self.value(x)
+        out = wei @ v
+        return out
+#---------------------------------------------------------------------------------------------
 class languagemodel(nn.module):
     def__init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocal_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.network = nn.Linear(n_embd,vocal_size)
+        self.head = Head(n_embd)
+        self.network1 = nn.Linear(n_embd,100)
+        selt.network2 = nn.Linear(100, vocal_size)
 
     def forward(self, idx, targets = None):
         B, T = idx.shape
@@ -63,7 +102,9 @@ class languagemodel(nn.module):
         position_idx = torch.arange(T)
         position_embd = self.position_embedding_table(position_idx)
         x = token_embd + position_embd
-        logits = self.network(x)
+        head_out = self.head(x)
+        logits = torch.relu(self.network(head_out))
+        logits = self.network2(logits)
                 
         if targets is None:
             loss = None
@@ -85,9 +126,25 @@ class languagemodel(nn.module):
         new_tokens = token_sequ[:,-max_new_tokens:]
         return new_tokens
 #----------------------------------------------------------------------------------------------
-model = languagemodel()
-model = model.to(device)
+def main()
+    print(f"train content:{file_name}")
+    model = languagemodel()
+    model = model.to(device)
+    print(sum(p.numel() for p in model.parameters())/1e6,'M parameters')
+#
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
+for i in range(max_iters):
+    if i%eval_interval ==0 or i == max_iters-1:
+        losses = estimate_loss(model)
+        print(f"step {i}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+        
+    xb,yb = get_batch("train")
+    logits,loss = model(xb, yb)
+    optimizer.zero_grad(set_to_none=True)
+    loss.backward()
+    optimizer.step()
+    
 max_new_tokens = 600
 start_idx = random.randint(0, len(valid——data)-block_size-max_new_tokens)
 #
@@ -108,3 +165,13 @@ wrapped_generated_str = textwrap.fill(generated_str, width=wrap_width)
 print(wrapped_context_str)
 print(wrapped_generated_str)
 print(wrapped_real_next_tokens_str)
+#--------------------------------------------------------------------------------------------------
+main()
+head = Head(5)
+print(head.tril)
+wei = torch.ones(block_size,block_size)
+print(wei)
+wei = wei.masked_fill(head.trill ==0, float("-inf"))
+print(wei)
+wei = F.softmax(wei, dim = -1)
+print(wei)
