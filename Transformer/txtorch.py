@@ -5,10 +5,13 @@ import random
 import textwrap
 #torch.nn,nn is neural network😊 and functional include function like loss and activate
 
-batch_size = 8
-block_size = 125
+batch_size = 56
+block_size = 224
 device = "cuda" if torch.cuda.is_available() else "cpu"
-n_embd = 16
+n_embd = 128
+num_heads = 10
+head_size = n_emd//num_heads
+n_layer = 6
 learning_rate=0.0003
 max_iters=500
 eval_interval =int(max_iters/10)
@@ -72,13 +75,17 @@ def estimate_loss(model):
 class Head(nn.Module):
     def __init__(self,head_size): 
         super().__init__()
+        self.key = nn.linear(n_embd,head_size, bias=False)
+        self.query = nn.linear(n_embd,head_size, bias=False)
         self.value = nn.linear(n_embd,head_size, bias=False)
         self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
         self.dropout = nn.Dropout(dropout_value)
 
     def forward(self, x):
         B, T, C = x.shape
-        wei = torch.ones(block_size, block_size)
+        k = self.key(x)
+        q = self.query(x)
+        wei = q @ k.transpose(-2, -1)* k.shape[-1]**-0.5
         wei = wei.masked_fill(self.trill ==0, float("-inf"))
         wei = F.softmax(wei, dim = -1)
         wei = self.dropout(wei)
@@ -86,25 +93,62 @@ class Head(nn.Module):
         v = self.value(x)
         out = wei @ v
         return out
+
+class MultiHeadAttention(nn.Module):
+    def __init__(self, num_heads,head__size)
+        super().__init__()
+        self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
+        self.proj = nn.Linear(head_size*num_heads, n_embd)
+        self.dropout = nn.Dropout(dropout_value)
+
+def forward(self, x)
+    out = torch.cat([h(x) for h in self.heads],dim=-1)
+    out = self.dropout(self.proj(out))
+    return out
+
+class FeedForward(nn.Module):
+    def __init__(self, n_embd):
+    self.net = nn.Sequential(
+        nn.Linear(n_embd, n_embd*4),
+        nn.ReLU(),
+        nn.Linear(n_embd*4, n_embd),
+        nn.Dropout(dropout_value),
+    )
+    def forward(self, x):
+        return self.net(x)
+
+class Block(nn.Module):
+    def __init__(self. n_embd, num_heads):
+        super().__init__()
+        self.sa = MultiHeadAttention(num_heads, head_size)
+        self.ffwd = FeedForward(n_embd)
+        self.ln1 = nn.LayerNorm(n_embd)
+        self.ln2 = nn.LayerNorm(n_embd)
+
+    def forward(self, x):
+        x = x + self.sa(self. ln1(x))
+        x = x + self.ffwd(self.ln2(x))
+        return x
+        
 #---------------------------------------------------------------------------------------------
 class languagemodel(nn.module):
-    def__init__(self):
+    def __init__(self):
         super().__init__()
         self.token_embedding_table = nn.Embedding(vocal_size, n_embd)
         self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.head = Head(n_embd)
-        self.network1 = nn.Linear(n_embd,100)
-        selt.network2 = nn.Linear(100, vocal_size)
-
+        self.blocks = nn.Sequential(*[Block(n_embd, num_heads) for _ in range(ln_layer)])
+        self.ln_f = nn.LayerNorm(n_embd)
+        self.lm_head = nn.Linear(n_embd,vocal_size)
+     
     def forward(self, idx, targets = None):
         B, T = idx.shape
         token_embd = self.token_embedding_table(idx)
-        position_idx = torch.arange(T)
+        position_idx = torch.arange(T,device = device)
         position_embd = self.position_embedding_table(position_idx)
         x = token_embd + position_embd
-        head_out = self.head(x)
-        logits = torch.relu(self.network(head_out))
-        logits = self.network2(logits)
+        x = self.blocks(x)
+        x = self.ln_f(x)
+        logits = self.lm_head(x)
                 
         if targets is None:
             loss = None
