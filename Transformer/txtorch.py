@@ -3,219 +3,245 @@ import torch.nn as nn
 from torch.nn import functional as F
 import random
 import textwrap
-#torch.nn,nn is neural network😊 and functional include function like loss and activate
+#torch.nn,nn 是 neural network😊，functional 包括了loss和activate等函数
 
-batch_size = 56
-block_size = 224
+# 设定模型超参数
+batch_size = 64  # 批量的大小
+block_size = 256  # 序列的长度
 device = "cuda" if torch.cuda.is_available() else "cpu"
-n_embd = 128
-num_heads = 10
-head_size = n_emd//num_heads
-n_layer = 6
-learning_rate=0.0003
-max_iters=500
-eval_interval =int(max_iters/10)
-eval_iters =200
-dropout_value = 0.2
-
-wrap_width = 50
+n_embd = 256  # 嵌入维度
+num_heads = 8  # 多头注意力的头数
+head_size = n_embd // num_heads
+n_layer = 8  # Transformer的层数
+learning_rate = 0.0005  # 学习率
+max_iters = 600  # 训练的轮次
+eval_interval = max_iters // 12  # 评估的间隔
+eval_iters = 250  # 评估样本的数量
+dropout_value = 0.3  # dropout的概率
+wrap_width = 50 #文本换行的宽度
 
 torch.manual_seed(325) '''The random seed is used to control the initial state of the random number 
 generator, ensuring that the generated random number sequence is the same every time the program runs. 
 '''
-file_name ="西游记.txt"
+# ==============================
+# 读取我们的西游记文本
+# ==============================
+file_name = "西游记.txt"
 
-with open(file_name,'r', encoding='uft-8') as f:
+with open(file_name, 'r', encoding='utf-8') as f:
     text = f.read()
-chars = sorted(list(set(text))) #delete the duplicate characters,and then convert to list, and then sorted
-vocal_size = len(chars)
 
-stoi ={ch:i for i,ch in enumerate(chars)}
+chars = sorted(set(text))  
+vocab_size = len(chars)
+
+stoi = {ch: i for i, ch in enumerate(chars)}
 itos = {i: ch for i, ch in enumerate(chars)}
-encode = lambda str1: [stoi[c]] for c in str1]
-decode = lambda list1:"".join([itos[i]] for i in list1])
+
+encode = lambda s: [stoi[c] for c in s]
+decode = lambda lst: "".join(itos[i] for i in lst)
 
 data = torch.tensor(encode(text), dtype=torch.long)
 
+# ==============================
+# 进行数据集的拆分
+# ==============================
 train_size = int(0.8 * len(data))
 valid_size = int(0.1 * len(data))
+test_size = len(data) - train_size - valid_size
 
 train_data = data[:train_size]
 valid_data = data[train_size:train_size + valid_size]
 test_data = data[train_size + valid_size:]
-print(f"文件(西游记.txt)读取完成")
 
-def batch(split):
-    if split == 'train':
-        data = train_data
-    elif split == 'valid':
-        data = valid_data
-    else split == 'test':
-        data = test_data
-    ix = torch.randint(len(data)- block_size,(batch_size,))
-    x = torch.stack([data[i:i+block_size] for i in ix])
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
-    x,y = x.to(device),y.to(device)
-    return x,y
-#---------------------------------------------------------------------------------------------
+print(f" file ({file_name}) 读取完成")
+print(f" train data: {train_size} 个字符")
+print(f" valid data: {valid_size} 个字符")
+print(f" test data: {test_size} 个字符")
+
+# ==============================
+#这里是获取批次数据
+# ==============================
+def get_batch(split):
+    dataset = train_data if split == 'train' else valid_data if split == 'valid' else test_data
+    ix = torch.randint(len(dataset) - block_size, (batch_size,))
+    x = torch.stack([dataset[i:i + block_size] for i in ix])
+    y = torch.stack([dataset[i + 1:i + block_size + 1] for i in ix])
+    return x.to(device), y.to(device)
+
+# ==============================
+# 这一部分是评估函数 (@torch.no_grad() 避免计算梯度)
+# ==============================
 @torch.no_grad()
 def estimate_loss(model):
     out = {}
-    model.eval()
-    for split in ['train','val']:
+    model.eval()  
+    for split in ['train', 'valid']:
         losses = torch.zeros(eval_iters)
         for k in range(eval_iters):
-            X, Y = batch(split)
-            logits, loss = model(X,Y)
+            X, Y = get_batch(split)
+            _, loss = model(X, Y)
             losses[k] = loss.item()
-        out[split] = loss.mean()
-        model.train()    
-        return out
-#---------------------------------------------------------------------------------------------
+        out[split] = losses.mean().item()
+    model.train() 
+    return out
+
+# ==============================
+# 这一部分是Transformer 组件：Head
+# ==============================
 class Head(nn.Module):
-    def __init__(self,head_size): 
+    def __init__(self, head_size):
         super().__init__()
-        self.key = nn.linear(n_embd,head_size, bias=False)
-        self.query = nn.linear(n_embd,head_size, bias=False)
-        self.value = nn.linear(n_embd,head_size, bias=False)
+        self.key = nn.Linear(n_embd, head_size, bias=False)
+        self.query = nn.Linear(n_embd, head_size, bias=False)
+        self.value = nn.Linear(n_embd, head_size, bias=False)
         self.register_buffer("tril", torch.tril(torch.ones(block_size, block_size)))
         self.dropout = nn.Dropout(dropout_value)
 
     def forward(self, x):
         B, T, C = x.shape
-        k = self.key(x)
-        q = self.query(x)
-        wei = q @ k.transpose(-2, -1)* k.shape[-1]**-0.5
-        wei = wei.masked_fill(self.trill ==0, float("-inf"))
-        wei = F.softmax(wei, dim = -1)
+        k, q = self.key(x), self.query(x)
+        wei = q @ k.transpose(-2, -1) * (k.shape[-1] ** -0.5)
+        wei = wei.masked_fill(self.tril[:T, :T] == 0, float("-inf"))
+        wei = F.softmax(wei, dim=-1)
         wei = self.dropout(wei)
 
         v = self.value(x)
-        out = wei @ v
-        return out
+        return wei @ v
 
+# ==============================
+# 这里是多头注意力机制
+# ==============================
 class MultiHeadAttention(nn.Module):
-    def __init__(self, num_heads,head__size)
+    def __init__(self, num_heads, head_size):
         super().__init__()
         self.heads = nn.ModuleList([Head(head_size) for _ in range(num_heads)])
-        self.proj = nn.Linear(head_size*num_heads, n_embd)
+        self.proj = nn.Linear(head_size * num_heads, n_embd)
         self.dropout = nn.Dropout(dropout_value)
 
-def forward(self, x)
-    out = torch.cat([h(x) for h in self.heads],dim=-1)
-    out = self.dropout(self.proj(out))
-    return out
-
-class FeedForward(nn.Module):
-    def __init__(self, n_embd):
-    self.net = nn.Sequential(
-        nn.Linear(n_embd, n_embd*4),
-        nn.ReLU(),
-        nn.Linear(n_embd*4, n_embd),
-        nn.Dropout(dropout_value),
-    )
     def forward(self, x):
-        return self.net(x)
+        out = torch.cat([h(x) for h in self.heads], dim=-1)
+        return self.dropout(self.proj(out))
 
+# ==============================
+# 这一部分是Transformer 块（Block）
+# ==============================
 class Block(nn.Module):
-    def __init__(self. n_embd, num_heads):
+    def __init__(self, n_embd, num_heads):
         super().__init__()
-        self.sa = MultiHeadAttention(num_heads, head_size)
-        self.ffwd = FeedForward(n_embd)
+        self.mha = MultiHeadAttention(num_heads, head_size)
+        self.ffn = nn.Sequential(
+            nn.Linear(n_embd, n_embd * 4),
+            nn.ReLU(),
+            nn.Linear(n_embd * 4, n_embd),
+            nn.Dropout(dropout_value),
+        )
         self.ln1 = nn.LayerNorm(n_embd)
         self.ln2 = nn.LayerNorm(n_embd)
 
     def forward(self, x):
-        x = x + self.sa(self. ln1(x))
-        x = x + self.ffwd(self.ln2(x))
+        x = x + self.mha(self.ln1(x))
+        x = x + self.ffn(self.ln2(x))
         return x
-        
-#---------------------------------------------------------------------------------------------
-class languagemodel(nn.module):
+
+# ==============================
+# 这一部分是语言模型
+# ==============================
+class LanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
-        self.token_embedding_table = nn.Embedding(vocal_size, n_embd)
-        self.position_embedding_table = nn.Embedding(block_size, n_embd)
-        self.blocks = nn.Sequential(*[Block(n_embd, num_heads) for _ in range(ln_layer)])
+        self.token_embedding = nn.Embedding(vocab_size, n_embd)
+        self.position_embedding = nn.Embedding(block_size, n_embd)
+        self.blocks = nn.Sequential(*[Block(n_embd, num_heads) for _ in range(n_layer)])
         self.ln_f = nn.LayerNorm(n_embd)
-        self.lm_head = nn.Linear(n_embd,vocal_size)
-     
-    def forward(self, idx, targets = None):
+        self.lm_head = nn.Linear(n_embd, vocab_size)
+
+    def forward(self, idx, targets=None):
         B, T = idx.shape
-        token_embd = self.token_embedding_table(idx)
-        position_idx = torch.arange(T,device = device)
-        position_embd = self.position_embedding_table(position_idx)
-        x = token_embd + position_embd
+        token_embd = self.token_embedding(idx)
+        pos_embd = self.position_embedding(torch.arange(T, device=device))
+        x = token_embd + pos_embd
         x = self.blocks(x)
         x = self.ln_f(x)
         logits = self.lm_head(x)
-                
+
         if targets is None:
-            loss = None
+            return logits, None
         else:
-            B, T, C = logits.shape
-            logits = logits.view(B*T, C)
-            targets = targets.view(B*T)
-            loss = F.cross_entropy(logits, targets)
-        return logits, loss
+            loss = F.cross_entropy(logits.view(B * T, -1), targets.view(B * T))
+            return logits, loss
 
-    def generate(self, token_sequ, max_new_tokens):
+    @torch.no_grad()
+    def generate(self, idx, max_new_tokens):
+        self.eval()
         for _ in range(max_new_tokens):
-            tokens_input = token_sequ[:, -block_size:]
-            logits, loss = self.forward(tokens_input)
-            logits = logits[:, -1 :]
-            probs = F.softmax(logits. dim=-1)
-            token_next = torch.multinomial(probs, num_samples=1)
-            token_sequ = torch.cat((token_sequ, token_next), dim=1)
-        new_tokens = token_sequ[:,-max_new_tokens:]
-        return new_tokens
-#----------------------------------------------------------------------------------------------
-def main()
-    print(f"train content:{file_name}")
-    model = languagemodel()
-    model = model.to(device)
-    print(sum(p.numel() for p in model.parameters())/1e6,'M parameters')
-#
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+            idx_cond = idx[:, -block_size:]  
+            logits, _ = self.forward(idx_cond)
+            logits = logits[:, -1, :]  
+            probs = F.softmax(logits, dim=-1)  
+            next_idx = torch.multinomial(probs, num_samples=1)  
+            idx = torch.cat((idx, next_idx), dim=1)  
+        return idx[:, -max_new_tokens:]  
 
-for i in range(max_iters):
-    if i%eval_interval ==0 or i == max_iters-1:
-        losses = estimate_loss(model)
-        print(f"step {i}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
-        
-    xb,yb = get_batch("train")
-    logits,loss = model(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
+# ==============================
+# 这一部分是训练主函数
+# ==============================
+def main():
+    print(f"训练文件: {file_name}")
+
+    model = LanguageModel().to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+
+    for i in range(max_iters):
+        xb, yb = get_batch("train")
+        optimizer.zero_grad()
+        _, loss = model(xb, yb)
+        loss.backward()
+        optimizer.step()
+
+        if i % eval_interval == 0 or i == max_iters - 1:
+            losses = estimate_loss(model)
+            print(f"Step {i}: Train Loss {losses['train']:.4f}, Valid Loss {losses['valid']:.4f}")
+
+if __name__ == "__main__":
+    main()
     
-max_new_tokens = 600
-start_idx = random.randint(0, len(valid——data)-block_size-max_new_tokens)
-#
+# 首先我们需要设定要生成的新 token 数量
+max_new_tokens = 6000
+
+# 从test_data随机选取一个起始位置
+start_idx = random.randint(0, len(test_data) - block_size - max_new_tokens)
+
+# 创建上下文 (context)，并填充test_data选取的文本
 context = torch.zeros((1, block_size), dtype=torch.long, device=device)
-context[0,:] = valid_data[start_idx: start_idx+block_size]
-context_str = decode(context[0]].tolist())
+context[0, :] = test_data[start_idx: start_idx + block_size]
+
+# decode上下文，然后转换为字符串
+context_str = decode(context[0].tolist())
 wrapped_context_str = textwrap.fill(context_str, width=wrap_width)
-#
+
+# 获取真实后续文本 (real_next_tokens)，用于对比
 real_next_tokens = torch.zeros((1, max_new_tokens), dtype=torch.long, device=device)
-real_next_tokens[0,:] = valid_data[start_idx+block_size: start_idx+block_size+max_new_tokens]
-real_next_tokens_str = decode(real_next_tokens[0]].tolist())
+real_next_tokens[0, :] = test_data[start_idx + block_size: start_idx + block_size + max_new_tokens]
+
+# decode真实文本
+real_next_tokens_str = decode(real_next_tokens[0].tolist())
 wrapped_real_next_tokens_str = textwrap.fill(real_next_tokens_str, width=wrap_width)
-#
+
+# 使用 generate()来让模型生成新文本
 generated_tokens = model.generate(context, max_new_tokens)
+
+# 用于decode模型生成的文本
 generated_str = decode(generated_tokens[0].tolist())
 wrapped_generated_str = textwrap.fill(generated_str, width=wrap_width)
 
+# 打印结果
+print("\n西游记的原始的上下文:\n")
 print(wrapped_context_str)
+
+print("\n这是模型生成的文本:\n")
 print(wrapped_generated_str)
+
+print("\n这是西游记的真实文本:\n")
 print(wrapped_real_next_tokens_str)
-#--------------------------------------------------------------------------------------------------
-main()
-head = Head(5)
-print(head.tril)
-wei = torch.ones(block_size,block_size)
-print(wei)
-wei = wei.masked_fill(head.trill ==0, float("-inf"))
-print(wei)
-wei = F.softmax(wei, dim = -1)
-print(wei)
+
+
