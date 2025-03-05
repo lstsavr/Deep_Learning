@@ -205,32 +205,24 @@ def main():
 if __name__ == "__main__":
     main()
     
-# 首先我们需要设定要生成的新 token 数量
 max_new_tokens = 6000
 
-# 从test_data随机选取一个起始位置
 start_idx = random.randint(0, len(test_data) - block_size - max_new_tokens)
 
-# 创建上下文 (context)，并填充test_data选取的文本
 context = torch.zeros((1, block_size), dtype=torch.long, device=device)
 context[0, :] = test_data[start_idx: start_idx + block_size]
 
-# decode上下文，然后转换为字符串
 context_str = decode(context[0].tolist())
 wrapped_context_str = textwrap.fill(context_str, width=wrap_width)
 
-# 获取真实后续文本 (real_next_tokens)，用于对比
 real_next_tokens = torch.zeros((1, max_new_tokens), dtype=torch.long, device=device)
 real_next_tokens[0, :] = test_data[start_idx + block_size: start_idx + block_size + max_new_tokens]
 
-# decode真实文本
 real_next_tokens_str = decode(real_next_tokens[0].tolist())
 wrapped_real_next_tokens_str = textwrap.fill(real_next_tokens_str, width=wrap_width)
 
-# 使用 generate()来让模型生成新文本
 generated_tokens = model.generate(context, max_new_tokens)
 
-# 用于decode模型生成的文本
 generated_str = decode(generated_tokens[0].tolist())
 wrapped_generated_str = textwrap.fill(generated_str, width=wrap_width)
 
