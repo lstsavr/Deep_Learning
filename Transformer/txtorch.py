@@ -6,19 +6,19 @@ import textwrap
 #torch.nn,nn 是 neural network😊，functional 包括了loss和activate等函数
 
 # 设定模型超参数
-batch_size = 64  # 批量的大小
-block_size = 256  # 序列的长度
+batch_size = 64  
+block_size = 256  
 device = "cuda" if torch.cuda.is_available() else "cpu"
-n_embd = 256  # 嵌入维度
-num_heads = 8  # 多头注意力的头数
+n_embd = 256  
+num_heads = 8 
 head_size = n_embd // num_heads
 n_layer = 8  # Transformer的层数
-learning_rate = 0.0005  # 学习率
-max_iters = 600  # 训练的轮次
-eval_interval = max_iters // 12  # 评估的间隔
-eval_iters = 250  # 评估样本的数量
-dropout_value = 0.3  # dropout的概率
-wrap_width = 50 #文本换行的宽度
+learning_rate = 0.0005  
+max_iters = 600  #
+eval_interval = max_iters // 12  
+eval_iters = 250  # 
+dropout_value = 0.3  
+wrap_width = 50 
 
 torch.manual_seed(325) '''The random seed is used to control the initial state of the random number 
 generator, ensuring that the generated random number sequence is the same every time the program runs. 
