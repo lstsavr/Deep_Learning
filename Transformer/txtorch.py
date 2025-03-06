@@ -12,7 +12,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 n_embd = 256  
 num_heads = 8 
 head_size = n_embd // num_heads
-n_layer = 8  # Transformer的层数
+n_layer = 8  # 这个是Transformer的层数
 learning_rate = 0.0005  
 max_iters = 600  #
 eval_interval = max_iters // 12  
@@ -24,7 +24,7 @@ torch.manual_seed(325) '''The random seed is used to control the initial state o
 generator, ensuring that the generated random number sequence is the same every time the program runs. 
 '''
 # ==============================
-# 读取我们的西游记文本
+# 这一部分是在读取我们的西游记.txt文本
 # ==============================
 file_name = "西游记.txt"
 
