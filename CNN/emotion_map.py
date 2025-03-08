@@ -5,14 +5,13 @@ def image_emotion_mapping(image_dir):
     # 读取 emotion.csv
     df_emotion = pd.read_csv('dataset/emotion.csv', header=None)
 
-    # 获取所有图片文件名
     files = [f for f in os.listdir(image_dir) if f.endswith(".jpg")]
     
     path_list = []
     emotion_list = []
 
     for file_name in files:
-        index = int(os.path.splitext(file_name)[0])  # 获取图片编号
+        index = int(os.path.splitext(file_name)[0])  
         path_list.append(file_name)
         emotion_list.append(df_emotion.iat[index, 0])  # 查 emotion
 
@@ -22,5 +21,4 @@ def image_emotion_mapping(image_dir):
 
     print(f"{image_dir} 的 image_emotion.csv 生成成功！")
 
-# 运行
 image_emotion_mapping('face_images')
