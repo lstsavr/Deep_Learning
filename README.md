@@ -6,4 +6,6 @@
 1. A transformer model that generates text by mimicking novels.
 - CNN
 1. A CNN model for emotion analysis
+- LeNet
+
 
