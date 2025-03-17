@@ -19,21 +19,18 @@ class FacialExpressionDataset(Dataset):
         image_path = os.path.join(self.image_dir, self.data.iloc[index, 0])
         emotion_label = int(self.data.iloc[index, 1])
 
-        # 读取图片并转换为灰度
         image = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
-        image = cv2.resize(image, (48, 48))  # 确保尺寸一致
+        image = cv2.resize(image, (48, 48)) 
 
-        # 归一化到 0-1 之间
         image = image.astype(np.float32) / 255.0
-        image = np.expand_dims(image, axis=0)  # 调整为 (1, 48, 48) 适配 CNN
+        image = np.expand_dims(image, axis=0)
 
         if self.transform:
             image = self.transform(image)
 
         return torch.tensor(image, dtype=torch.float32), torch.tensor(emotion_label, dtype=torch.long)
 
-# 测试数据集
 if __name__ == '__main__':
     transform = transforms.Compose([transforms.ToTensor()])
     dataset = FacialExpressionDataset('face_images', transform=transform)
-    print(f"数据集加载成功，共 {len(dataset)} 张图片！")
+    print(f"dataset load successfully，there are {len(dataset)} pictures in total！")
