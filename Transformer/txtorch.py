@@ -23,9 +23,7 @@ wrap_width = 50
 torch.manual_seed(325) '''The random seed is used to control the initial state of the random number 
 generator, ensuring that the generated random number sequence is the same every time the program runs. 
 '''
-# ==============================
-# 这一部分是在读取我们的西游记.txt文本
-# ==============================
+
 file_name = "西游记.txt"
 
 with open(file_name, 'r', encoding='utf-8') as f:
@@ -42,9 +40,6 @@ decode = lambda lst: "".join(itos[i] for i in lst)
 
 data = torch.tensor(encode(text), dtype=torch.long)
 
-# ==============================
-# 进行数据集的拆分
-# ==============================
 train_size = int(0.8 * len(data))
 valid_size = int(0.1 * len(data))
 test_size = len(data) - train_size - valid_size
@@ -58,9 +53,6 @@ print(f" train data: {train_size} 个字符")
 print(f" valid data: {valid_size} 个字符")
 print(f" test data: {test_size} 个字符")
 
-# ==============================
-#这里是获取批次数据
-# ==============================
 def get_batch(split):
     dataset = train_data if split == 'train' else valid_data if split == 'valid' else test_data
     ix = torch.randint(len(dataset) - block_size, (batch_size,))
@@ -68,9 +60,7 @@ def get_batch(split):
     y = torch.stack([dataset[i + 1:i + block_size + 1] for i in ix])
     return x.to(device), y.to(device)
 
-# ==============================
-# 这一部分是评估函数 (@torch.no_grad() 避免计算梯度)
-# ==============================
+
 @torch.no_grad()
 def estimate_loss(model):
     out = {}
@@ -85,9 +75,6 @@ def estimate_loss(model):
     model.train() 
     return out
 
-# ==============================
-# 这一部分是Transformer 组件：Head
-# ==============================
 class Head(nn.Module):
     def __init__(self, head_size):
         super().__init__()
@@ -108,9 +95,7 @@ class Head(nn.Module):
         v = self.value(x)
         return wei @ v
 
-# ==============================
-# 这里是多头注意力机制
-# ==============================
+
 class MultiHeadAttention(nn.Module):
     def __init__(self, num_heads, head_size):
         super().__init__()
@@ -122,9 +107,7 @@ class MultiHeadAttention(nn.Module):
         out = torch.cat([h(x) for h in self.heads], dim=-1)
         return self.dropout(self.proj(out))
 
-# ==============================
-# 这一部分是Transformer 块（Block）
-# ==============================
+
 class Block(nn.Module):
     def __init__(self, n_embd, num_heads):
         super().__init__()
@@ -143,9 +126,7 @@ class Block(nn.Module):
         x = x + self.ffn(self.ln2(x))
         return x
 
-# ==============================
-# 这一部分是语言模型
-# ==============================
+
 class LanguageModel(nn.Module):
     def __init__(self):
         super().__init__()
@@ -182,9 +163,6 @@ class LanguageModel(nn.Module):
             idx = torch.cat((idx, next_idx), dim=1)  
         return idx[:, -max_new_tokens:]  
 
-# ==============================
-# 这一部分是训练主函数
-# ==============================
 def main():
     print(f"训练文件: {file_name}")
 
