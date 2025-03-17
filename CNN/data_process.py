@@ -14,6 +14,6 @@ os.makedirs(output_dir, exist_ok=True)
 df_emotion.to_csv(os.path.join(output_dir, 'emotion.csv'), index=False, header=False)
 df_pixels.to_csv(os.path.join(output_dir, 'pixels.csv'), index=False, header=False)
 
-print("emotion.csv 和 pixels.csv 生成成功！")
+print("emotion.csv and pixels.csv generate successfully！")
 
 
