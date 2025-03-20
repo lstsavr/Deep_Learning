@@ -3,16 +3,14 @@ import torch.nn as nn
 from torch.nn import functional as F
 import random
 import textwrap
-#torch.nn,nn 是 neural network😊，functional 包括了loss和activate等函数
 
-# 设定模型超参数
 batch_size = 64  
 block_size = 256  
 device = "cuda" if torch.cuda.is_available() else "cpu"
 n_embd = 256  
 num_heads = 8 
 head_size = n_embd // num_heads
-n_layer = 8  # 这个是Transformer的层数
+n_layer = 8 
 learning_rate = 0.0005  
 max_iters = 600  #
 eval_interval = max_iters // 12  
