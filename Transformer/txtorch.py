@@ -202,14 +202,13 @@ generated_tokens = model.generate(context, max_new_tokens)
 generated_str = decode(generated_tokens[0].tolist())
 wrapped_generated_str = textwrap.fill(generated_str, width=wrap_width)
 
-# 打印结果
-print("\n西游记的原始的上下文:\n")
+print("\n原始上下文:\n")
 print(wrapped_context_str)
 
-print("\n这是模型生成的文本:\n")
+print("\n模型生成文本:\n")
 print(wrapped_generated_str)
 
-print("\n这是西游记的真实文本:\n")
+print("\n真实文本:\n")
 print(wrapped_real_next_tokens_str)
 
 
