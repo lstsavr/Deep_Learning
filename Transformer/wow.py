@@ -253,15 +253,15 @@ class GPTLanguageModel(nn.Module):
     # 生成文本
     def generate(self, token_sequ, max_new_tokens):
         # token_sequ is (B, T) array of indices in the current context
-        for _ in range(max_new_tokens):
+        for _ in range(max_new_tokens):#每次预测下一个token，重复max_new_tokens次
             # crop token_sequ to the last block_size tokens（不能长于block size）
-            tokens_input = token_sequ[:, -block_size:] # 逗号隔开各个维度
+            tokens_input = token_sequ[:, -block_size:] # 只保留序列最后的block size作为输入
             logits, loss = self.forward(tokens_input) # logits, (B,T,vocab_size)
-            logits = logits[:, -1, :] # becomes (B, vocab_size)
-            probs = F.softmax(logits, dim=-1) # (B, vocab_size)
-            token_next = torch.multinomial(probs, num_samples=1) # (B, 1) 以分布值为概率随机选择
-            token_sequ = torch.cat((token_sequ, token_next), dim=1) # (B, T+1)
-        new_tokens = token_sequ[:, -max_new_tokens:] # 逗号隔开各个维度
+            logits = logits[:, -1, :] # becomes (B, vocab_size)，切片，每个batch只取最后一个token
+            probs = F.softmax(logits, dim=-1) # 计算概率
+            token_next = torch.multinomial(probs, num_samples=1) # (B, 1) 以分布值为概率随机选择，multinomial相比argmax更加灵活
+            token_sequ = torch.cat((token_sequ, token_next), dim=1) # (B, T+1)，拼接到上文后面
+        new_tokens = token_sequ[:, -max_new_tokens:] # 生成完毕之后，返回最后max_new_tokens 个 token
         return new_tokens
 
 #---main()函数--------------------------
@@ -274,13 +274,13 @@ def main():
     print(sum(p.numel() for p in model.parameters())/1e6, 'M parameters')
 
     # create a PyTorch optimizer 设定优化器
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate) #model.parameters（）是他要优化的参数
 
     # 训练循环
     for iter in range(max_iters):
 
-        # every once in a while evaluate the loss on train and val sets
         if iter % eval_interval == 0 or iter == max_iters - 1:
+            #eval_interval 是你设定的评估频率（比如每 500 步评估一次）.estimate_loss(model)：会在 train/val 数据上计算平均 loss，这一步是为了查看模型的训练效果，是否在降低
             losses = estimate_loss(model)
             print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
@@ -288,10 +288,10 @@ def main():
         xb, yb = get_batch('train') # xb， yb 中的数据时序长度都是block_size，每个token都用一个整数表示
 
         # evaluate the loss
-        logits, loss = model(xb, yb) # 前馈
+        logits, loss = model(xb, yb) # 向前传播，计算loss
         optimizer.zero_grad(set_to_none=True) # 梯度重置
-        loss.backward() # 计算损失函数
-        optimizer.step() # 优化一步
+        loss.backward() # 计算损失函数，反向传播
+        optimizer.step() # 优化一步，参数更新
 
     print ("Training complete 训练结束，下面开始生成内容：")
     # generate from the model
