@@ -133,43 +133,8 @@ class MultiHeadAttention(nn.Module):
       #这是个列表推导式，遍历了每个头，把输入x传进去，得到每个head的输出，然后把这些输出全部拼起来
         out = self.dropout(self.proj(out))#把out送进线性层里处理一下，
         return out # (B, T, n_embd)
-      
-  #   x  ← (B, T, n_embd)
-  #              │
-  #  ┌──────────┴─────────────┐
-  #  │   Head 1 → [B, T, hs]  │
-  #  │   Head 2 → [B, T, hs]  │
-  #  │   Head 3 → [B, T, hs]  │   共有 num_heads 个
-  #  └──────────┬─────────────┘
-  #              ↓
-  #  拼接 → [B, T, hs * num_heads]
-  #              ↓
-  #  proj →     [B, T, n_embd]
-  #              ↓
-  #  dropout →  [B, T, n_embd]  ← 最终输出
-
 
 class FeedFoward(nn.Module):#前馈神经网络层
-    """ a simple linear layer followed by a non-linearity
-    一个 token 的输入向量 x（shape = [n_embd]）
-
-    ↓ 第一步：Self-Attention
-→ 用上下文信息更新 token 的表示（谁重要看谁）
-
-    ↓ 第二步：FeedForward
-→ 在 token 内部，对这个向量进行更深的特征变换（升维+非线性+降维）
-
-    ↓ 输出这个 token 的新表示
-
-    +----------------------------------+
-|           Self-Attention         |
-| (捕捉 token 之间的依赖关系)         |
-+----------------------------------+
-|         FeedForward（FFN）        |
-| (丰富每个 token 的表达能力)        |
-+----------------------------------+
-
-    """
 
     def __init__(self, n_embd):
         super().__init__()
