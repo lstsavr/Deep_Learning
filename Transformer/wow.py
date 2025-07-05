@@ -27,11 +27,9 @@ file_name = "txt"
 with open(file_name, 'r', encoding='utf-8') as f:
     text = f.read()
 
-# here are all the unique characters that occur in this text
 chars = sorted(list(set(text))) # set()创建一个无序无重复的集合，然后转化为一个list，再按sorted进行排序
 vocab_size = len(chars) # 一共有多少个字母
 
-# create a mapping from characters to integers
 #构建字符和整数index之间的双向映射字典，把字符转换为模型能训练的token ID，把模型输出的数字转化为字符
 #字典推导式：{key:value for item in iterable}这里的enumerate()可以返回chars里的索引和值，i,ch默认是遍历chars里的索引和值
 
@@ -149,12 +147,7 @@ class FeedFoward(nn.Module):#前馈神经网络层
         return self.net(x) # (B, T, n_embd)
 
 class Block(nn.Module):
-    """ Transformer block: communication followed by computation """
-  '''接收一组 token 的向量（embedding） →
-     做注意力交互（Self-Attention） →
-     做非线性加工（FeedForward） →
-     加上残差连接 + 层归一化（LayerNorm）        
-    '''
+    
     def __init__(self, n_embd, n_head):
         # n_embd: embedding dimension, n_head: the number of heads we'd like
         super().__init__()
