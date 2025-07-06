@@ -176,7 +176,6 @@ class GPTLanguageModel(nn.Module):
         self.ln_f = nn.LayerNorm(n_embd) # final layer norm
         self.lm_head = nn.Linear(n_embd, vocab_size)
 
-    
         self.apply(self._init_weights)#对模型的子模块都执行_init_weights()
 
     def _init_weights(self, module):
@@ -205,7 +204,6 @@ class GPTLanguageModel(nn.Module):
             logits = logits.view(B*T, C) # 摊平，flatten
             targets = targets.view(B*T) # targets也摊平
             loss = F.cross_entropy(logits, targets) # logits 和 targets的shape不一样，这是交叉熵计算loss
-
         return logits, loss
 
     # 生成文本
